@@ -13,12 +13,24 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     private var install: (() -> Void)?
     private var asked = false
     private var retry: Timer?
+    private var checks: Timer?
+    private var wake: NSObjectProtocol?
     private var controller: SPUStandardUpdaterController?
 
     func start() {
         controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
+        // Sparkle's own schedule waits at least an hour; new releases should reach everyone within minutes.
+        checks = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.checkNow() }
+        wake = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.checkNow()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.checkNow() }
     }
-    func checkNow() { controller?.updater.checkForUpdatesInBackground() }
+    func checkNow() {
+        // Sparkle ignores checks while a session runs, such as a download already under way.
+        guard let updater = controller?.updater, !updater.sessionInProgress else { return }
+        updater.checkForUpdatesInBackground()
+    }
 
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock: @escaping () -> Void) -> Bool {
         offer(version: item.displayVersionString, install: immediateInstallationBlock)
@@ -26,8 +38,10 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     }
 
     func offer(version: String, install: @escaping () -> Void) {
-        pendingVersion = version
         self.install = install
+        // Later checks find the same download again; Depois must not become a question every few minutes.
+        guard version != pendingVersion else { return }
+        pendingVersion = version
         asked = false
         onChange?()
         askIfIdle()

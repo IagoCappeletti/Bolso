@@ -56,7 +56,8 @@ func runUpdateCheck() {
         return false
     }
     updater.start()
-    updater.checkNow()
+    // Sparkle ignores checks while it is still busy at launch, so keep asking until the download starts.
+    Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in updater.checkNow() }
     DispatchQueue.main.asyncAfter(deadline: .now() + 90) { print("FAIL: nenhuma atualização em 90 s"); exit(1) }
     app.run()
 }
@@ -77,10 +78,14 @@ private func updaterChecks() {
     precondition(questions.count == 1, "Depois is not asked again")
     updater.installNow()
     precondition(installs == 1, "The menu item installs the waiting update")
+    updater.offer(version: "9.9.9") { installs += 1 }
+    precondition(questions.count == 1, "Frequent checks find the same download again without asking again")
+    updater.installNow()
+    precondition(installs == 2, "The menu item uses the latest install handle")
     answer = true
     updater.offer(version: "9.9.10") { installs += 1 }
-    precondition(questions.last == "9.9.10" && installs == 2, "Reiniciar agora installs right away")
-    print("PASS: atualização espera captura/editor/painel, pergunta uma vez, Depois instala ao sair e o menu instala na hora")
+    precondition(questions.last == "9.9.10" && installs == 3, "Reiniciar agora installs right away")
+    print("PASS: atualização espera captura/editor/painel, pergunta uma vez (mesmo achando de novo), Depois instala ao sair e o menu instala na hora")
 }
 
 func runPanelChecks() {
