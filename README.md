@@ -4,7 +4,14 @@
 
 Histórico da área de transferência e captura de tela para macOS. Fica na barra de menus, guarda os últimos 25 itens copiados e tem um editor para marcar imagens e prints.
 
-Feito para uso pessoal, em Swift, sem Xcode e sem dependências.
+## Baixar
+
+1. Baixe o `.zip` da [versão mais recente](https://github.com/IagoCappeletti/Bolso/releases/latest) e abra o arquivo.
+2. Arraste o **Bolso** para a pasta **Aplicativos** e abra.
+3. Na primeira vez o macOS bloqueia, porque o app não vem da App Store. Clique em **Concluído**, vá em **Ajustes do Sistema → Privacidade e Segurança**, role até o aviso do Bolso e clique em **Abrir Mesmo Assim**.
+4. Ligue o Bolso em **Acessibilidade**, para ele colar sozinho, e em **Gravação da Tela**, que o macOS pede no primeiro ⌘⇧2.
+
+Funciona no macOS 13 ou mais novo, em Macs com chip Apple ou Intel. Para abrir junto com o Mac, marque **Abrir ao iniciar o Mac** no menu do ícone.
 
 ## Atalhos
 
@@ -35,30 +42,6 @@ Feito para uso pessoal, em Swift, sem Xcode e sem dependências.
 - **Salvar** (⌘S) grava um PNG, e a alça ✋ arrasta a imagem para outro app.
 - ⌘Z e ⌘⇧Z desfazem e refazem. Esc cancela; se houver marcações, a barra pergunta antes.
 
-## Instalar e atualizar
-
-Precisa do macOS 13 ou mais novo e das Command Line Tools (`xcode-select --install`).
-
-```sh
-./build.sh --install
-```
-
-Compila, fecha o Bolso aberto, instala em `/Applications` e abre de novo. O mesmo comando atualiza (o histórico zera). Só `./build.sh` gera `dist/Bolso.app` sem instalar.
-
-Na primeira vez, ligue o Bolso em **Ajustes do Sistema → Privacidade e Segurança**:
-
-- **Acessibilidade**, para colar sozinho (sem ela, cole com ⌘V);
-- **Gravação da Tela**, para o ⌘⇧2.
-
-Para abrir junto com o Mac, marque **Abrir ao iniciar o Mac** no menu do ícone.
-
-<details>
-<summary>Assinatura</summary>
-
-O `build.sh` assina o app com um certificado autoassinado do Acesso às Chaves, para o macOS não pedir as permissões de novo a cada atualização. Em outro Mac, crie um em **Acesso às Chaves → Assistente de Certificado → Criar um Certificado…** (Raiz Autoassinada, Assinatura de Código, depois **Confiar Sempre**) e rode `SIGN_IDENTITY="nome do certificado" ./build.sh`. Sem certificado, use `SIGN_IDENTITY=- ./build.sh`; aí o macOS pede as permissões a cada build.
-
-</details>
-
 ## Limites
 
 - Imagens acima de 32 MiB ou 24 milhões de pixels ficam só em miniatura, sem edição. O histórico guarda até 128 MiB de imagens.
@@ -66,7 +49,22 @@ O `build.sh` assina o app com um certificado autoassinado do Acesso às Chaves, 
 - Na primeira abertura de cada versão, o OCR leva cerca de um minuto para ficar pronto.
 - Arrastar uma imagem cria um PNG temporário, apagado em 2 minutos. Fora isso, nada vai para o disco sem você salvar.
 
-## Testes
+## Compilar
+
+Feito em Swift, sem Xcode e sem dependências. Precisa das Command Line Tools (`xcode-select --install`).
+
+```sh
+./build.sh --install   # compila, fecha o Bolso aberto, instala em /Applications e abre
+./build.sh --release   # gera dist/Bolso-<versão>.zip universal (chip Apple e Intel) para a Release
+./build.sh             # só gera dist/Bolso.app
+```
+
+<details>
+<summary>Assinatura</summary>
+
+O `build.sh` assina o app com um certificado autoassinado do Acesso às Chaves. Mantendo o mesmo certificado, quem atualiza não precisa dar as permissões de novo. Em outro Mac, crie um em **Acesso às Chaves → Assistente de Certificado → Criar um Certificado…** (Raiz Autoassinada, Assinatura de Código, depois **Confiar Sempre**) e rode `SIGN_IDENTITY="nome do certificado" ./build.sh`. Sem certificado, use `SIGN_IDENTITY=- ./build.sh`; aí o macOS pede as permissões a cada build.
+
+</details>
 
 As Command Line Tools não trazem XCTest, então os testes são executáveis e usam áreas de transferência temporárias:
 

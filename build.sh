@@ -2,14 +2,26 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 IDENTITY="${SIGN_IDENTITY:-Gaveta DEV}"
-swift build -c release --product Bolso
-BIN_DIR="$(swift build -c release --show-bin-path)"
+VERSION=1.2.0
 APP="$PWD/dist/Bolso.app"
+if [[ "${1:-}" == "--release" ]]; then
+  # Downloads must run on both Apple silicon and Intel Macs.
+  SLICES=()
+  for ARCH in arm64 x86_64; do
+    swift build -c release --product Bolso --triple "$ARCH-apple-macosx13.0" --scratch-path ".build/$ARCH"
+    SLICES+=("$(swift build -c release --triple "$ARCH-apple-macosx13.0" --scratch-path ".build/$ARCH" --show-bin-path)/Bolso")
+  done
+  BINARY=.build/Bolso-universal
+  lipo -create "${SLICES[@]}" -output "$BINARY"
+else
+  swift build -c release --product Bolso
+  BINARY="$(swift build -c release --show-bin-path)/Bolso"
+fi
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 ./Assets/build-icon.sh
 cp Assets/Bolso.icns "$APP/Contents/Resources/Bolso.icns"
-cp "$BIN_DIR/Bolso" "$APP/Contents/MacOS/Bolso"
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cp "$BINARY" "$APP/Contents/MacOS/Bolso"
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -19,7 +31,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Bolso</string>
 <key>CFBundleIconFile</key><string>Bolso.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.0</string>
+<key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>CFBundleVersion</key><string>3</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
@@ -34,6 +46,12 @@ fi
 codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 echo "Pronto: $APP"
+if [[ "${1:-}" == "--release" ]]; then
+  ZIP="$PWD/dist/Bolso-$VERSION.zip"
+  rm -f "$ZIP"
+  ditto -c -k --keepParent "$APP" "$ZIP"
+  echo "Pacote para a Release: $ZIP"
+fi
 if [[ "${1:-}" == "--install" ]]; then
   if pgrep -xq Bolso; then
     # A normal quit lets pending edits cancel the update instead of losing them.
