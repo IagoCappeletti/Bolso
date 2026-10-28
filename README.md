@@ -13,6 +13,8 @@ Histórico da área de transferência e captura de tela para macOS. Fica na barr
 
 Funciona no macOS 13 ou mais novo, em Macs com chip Apple ou Intel. Para abrir junto com o Mac, marque **Abrir ao iniciar o Mac** no menu do ícone.
 
+As versões seguintes chegam sozinhas: o Bolso baixa em segundo plano e pergunta se pode reiniciar, porque reiniciar limpa o histórico. Com **Depois**, ele atualiza na próxima vez que fechar.
+
 ## Atalhos
 
 | Tecla | Ação |
@@ -51,18 +53,22 @@ Funciona no macOS 13 ou mais novo, em Macs com chip Apple ou Intel. Para abrir j
 
 ## Compilar
 
-Feito em Swift, sem Xcode e sem dependências. Precisa das Command Line Tools (`xcode-select --install`).
+Feito em Swift, sem Xcode. A única dependência é o [Sparkle](https://sparkle-project.org), que faz as atualizações. Precisa das Command Line Tools (`xcode-select --install`).
 
 ```sh
 ./build.sh --install   # compila, fecha o Bolso aberto, instala em /Applications e abre
-./build.sh --release   # gera dist/Bolso-<versão>.zip universal (chip Apple e Intel) para a Release
+./build.sh --release   # gera dist/Bolso-<versão>.zip universal (chip Apple e Intel) e dist/appcast.xml
 ./build.sh             # só gera dist/Bolso.app
 ```
+
+Para lançar uma versão, mude `VERSION` no `build.sh`, rode `./build.sh --release` e publique uma Release `v<versão>` com o `.zip` e o `appcast.xml`. Os apps instalados procuram o `appcast.xml` da Release mais recente.
 
 <details>
 <summary>Assinatura</summary>
 
 O `build.sh` assina o app com um certificado autoassinado do Acesso às Chaves. Mantendo o mesmo certificado, quem atualiza não precisa dar as permissões de novo. Em outro Mac, crie um em **Acesso às Chaves → Assistente de Certificado → Criar um Certificado…** (Raiz Autoassinada, Assinatura de Código, depois **Confiar Sempre**) e rode `SIGN_IDENTITY="nome do certificado" ./build.sh`. Sem certificado, use `SIGN_IDENTITY=- ./build.sh`; aí o macOS pede as permissões a cada build.
+
+As atualizações são assinadas com outra chave, do Sparkle, também guardada no Acesso às Chaves deste Mac. Sem ela, os apps instalados não aceitam versões novas. Para fazer uma cópia de segurança, rode `.build/artifacts/sparkle/Sparkle/bin/generate_keys -x arquivo` e guarde o arquivo num lugar seguro.
 
 </details>
 

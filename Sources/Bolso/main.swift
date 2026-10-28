@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var status: NSStatusItem!
     private var pauseItem: NSMenuItem!
     private var loginItem: NSMenuItem!
+    private var updateItem: NSMenuItem!
+    private let updater = AppUpdater()
     private var hotKey: HotKey?
     private var captureHotKey: HotKey?
     private var session: PanelSession?
@@ -26,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pauseItem = menu.addItem(withTitle: "Pausar captura", action: #selector(pause), keyEquivalent: "")
         menu.addItem(withTitle: "Limpar histórico", action: #selector(clear), keyEquivalent: "")
         loginItem = menu.addItem(withTitle: "Abrir ao iniciar o Mac", action: #selector(toggleLogin), keyEquivalent: "")
+        updateItem = menu.addItem(withTitle: "Reiniciar para atualizar", action: #selector(installUpdate), keyEquivalent: "")
+        updateItem.isHidden = true
         menu.addItem(.separator())
         menu.addItem(withTitle: "Sair", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
@@ -37,12 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         catch { showError("Não foi possível registrar ⌘⇧2 para capturar a tela. Verifique se outro app usa o atalho.\n\(error)") }
         DragFiles.clearAll()
         TextRecognizer.warmUp()
+        updater.isBusy = { [weak self] in self?.capture != nil || self?.editor != nil || self?.session != nil }
+        updater.start()
         if !AXIsProcessTrusted() {
             AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
         }
     }
     func menuWillOpen(_ menu: NSMenu) {
         pauseItem.title = store.paused ? "Retomar captura" : "Pausar captura"
+        updateItem.isHidden = updater.pendingVersion == nil
+        if let version = updater.pendingVersion { updateItem.title = "Reiniciar para atualizar para a \(version)" }
         switch SMAppService.mainApp.status {
         case .enabled: loginItem.state = .on
         case .requiresApproval: loginItem.state = .mixed
@@ -147,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSWorkspace.shared.open(url)
         }
     }
+    @objc private func installUpdate() { updater.installNow() }
     @objc private func pause() { store.togglePause() }
     @objc private func clear() { store.clear() }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -154,7 +163,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func quit() { NSApp.terminate(nil) }
 }
-if CommandLine.arguments.contains("--editor-demo") {
+if CommandLine.arguments.contains("--update-self-test") {
+    runUpdateCheck()
+} else if CommandLine.arguments.contains("--editor-demo") {
     runEditorDemo()
 } else if CommandLine.arguments.contains("--capture-self-test") {
     runCaptureChecks()

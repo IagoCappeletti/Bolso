@@ -41,6 +41,46 @@ func runSelfChecks() {
     store = nil
     precondition(weakStore == nil)
     print("PASS: timer, pausa/retomada, escrita própria, limpeza e liberação de store/sessão")
+    updaterChecks()
+}
+
+/// Run from a bundle whose feed lists a newer build: Sparkle must download and verify it, and the bundle is replaced on quit.
+func runUpdateCheck() {
+    setbuf(stdout, nil)
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    let updater = AppUpdater()
+    updater.ask = { version in
+        print("PASS: \(version) baixada e com assinatura verificada; o Bolso fecha para instalar")
+        DispatchQueue.main.async { NSApp.terminate(nil) }
+        return false
+    }
+    updater.start()
+    updater.checkNow()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 90) { print("FAIL: nenhuma atualização em 90 s"); exit(1) }
+    app.run()
+}
+
+private func updaterChecks() {
+    let updater = AppUpdater()
+    var busy = true, answer = false, installs = 0, changes = 0
+    var questions: [String] = []
+    updater.isBusy = { busy }
+    updater.ask = { questions.append($0); return answer }
+    updater.onChange = { changes += 1 }
+    updater.offer(version: "9.9.9") { installs += 1 }
+    precondition(questions.isEmpty && updater.pendingVersion == "9.9.9" && changes == 1, "A capture, the editor or the panel holds the question back")
+    busy = false
+    updater.askIfIdle()
+    precondition(questions == ["9.9.9"] && installs == 0, "Idle, it asks once; Depois leaves the update for the next quit")
+    updater.askIfIdle()
+    precondition(questions.count == 1, "Depois is not asked again")
+    updater.installNow()
+    precondition(installs == 1, "The menu item installs the waiting update")
+    answer = true
+    updater.offer(version: "9.9.10") { installs += 1 }
+    precondition(questions.last == "9.9.10" && installs == 2, "Reiniciar agora installs right away")
+    print("PASS: atualização espera captura/editor/painel, pergunta uma vez, Depois instala ao sair e o menu instala na hora")
 }
 
 func runPanelChecks() {

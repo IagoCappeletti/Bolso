@@ -2,7 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 IDENTITY="${SIGN_IDENTITY:-Gaveta DEV}"
-VERSION=1.2.0
+VERSION="${VERSION:-1.3.0}"
+FEED_URL="${FEED_URL:-https://github.com/IagoCappeletti/Bolso/releases/latest/download/appcast.xml}"
+DOWNLOAD_URL="${DOWNLOAD_URL:-https://github.com/IagoCappeletti/Bolso/releases/download/v$VERSION/}"
+# Public half of the update signing key; the private half stays in this Mac's keychain.
+SPARKLE_KEY="iORVq/BP0OqmK1nuiTG3eno6DN26P/0WOE7MwdVH7qo="
 APP="$PWD/dist/Bolso.app"
 if [[ "${1:-}" == "--release" ]]; then
   # Downloads must run on both Apple silicon and Intel Macs.
@@ -21,6 +25,13 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 ./Assets/build-icon.sh
 cp Assets/Bolso.icns "$APP/Contents/Resources/Bolso.icns"
 cp "$BINARY" "$APP/Contents/MacOS/Bolso"
+# Rpaths into this build folder would leak the local path; the app loads Sparkle from Contents/Frameworks.
+otool -l "$APP/Contents/MacOS/Bolso" | awk -v build="$PWD" '$1 == "path" && index($2, build) == 1 { print $2 }' | sort -u |
+  while read -r RPATH; do install_name_tool -delete_rpath "$RPATH" "$APP/Contents/MacOS/Bolso"; done
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks"
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$(dirname "${SLICES[0]:-$BINARY}")/Sparkle.framework" "$SPARKLE"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -32,10 +43,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>CFBundleIconFile</key><string>Bolso.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
-<key>CFBundleVersion</key><string>3</string>
+<key>CFBundleVersion</key><string>$VERSION</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
+<key>SUFeedURL</key><string>$FEED_URL</string>
+<key>SUPublicEDKey</key><string>$SPARKLE_KEY</string>
+<key>SUEnableAutomaticChecks</key><true/>
+<key>SUAutomaticallyUpdate</key><true/>
+<key>SUScheduledCheckInterval</key><integer>21600</integer>
 </dict></plist>
 PLIST
 plutil -lint "$APP/Contents/Info.plist"
@@ -43,14 +59,22 @@ if [[ "$IDENTITY" != "-" ]] && ! security find-identity -v -p codesigning | grep
   echo "Certificado '$IDENTITY' não encontrado. Veja README.md. Bundle gerado, mas não assinado." >&2
   exit 1
 fi
+# Nested code is signed inside out, Sparkle's helpers before the framework and the framework before the app.
+codesign --force --sign "$IDENTITY" --timestamp=none "$SPARKLE/Versions/Current/XPCServices/Installer.xpc"
+codesign --force --sign "$IDENTITY" --timestamp=none --preserve-metadata=entitlements "$SPARKLE/Versions/Current/XPCServices/Downloader.xpc"
+codesign --force --sign "$IDENTITY" --timestamp=none "$SPARKLE/Versions/Current/Autoupdate" "$SPARKLE/Versions/Current/Updater.app" "$SPARKLE"
 codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
-codesign --verify --strict --verbose=2 "$APP"
+codesign --verify --strict --deep --verbose=2 "$APP"
 echo "Pronto: $APP"
 if [[ "${1:-}" == "--release" ]]; then
   ZIP="$PWD/dist/Bolso-$VERSION.zip"
   rm -f "$ZIP"
   ditto -c -k --keepParent "$APP" "$ZIP"
-  echo "Pacote para a Release: $ZIP"
+  # The feed lists only this build and is signed with the key in the keychain.
+  FEED=.build/appcast
+  rm -rf "$FEED" "$PWD/dist/appcast.xml"; mkdir -p "$FEED"; cp "$ZIP" "$FEED/"
+  .build/artifacts/sparkle/Sparkle/bin/generate_appcast --download-url-prefix "$DOWNLOAD_URL" -o "$PWD/dist/appcast.xml" "$FEED"
+  echo "Para a Release: $ZIP e $PWD/dist/appcast.xml"
 fi
 if [[ "${1:-}" == "--install" ]]; then
   if pgrep -xq Bolso; then
