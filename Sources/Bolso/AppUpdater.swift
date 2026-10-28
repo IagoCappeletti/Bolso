@@ -3,7 +3,7 @@ import Sparkle
 
 /// Sparkle downloads new GitHub releases in the background; restarting into them clears the
 /// in-memory history, so the user chooses between now and the next quit, which installs anyway.
-final class AppUpdater: NSObject, SPUUpdaterDelegate {
+final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     private(set) var pendingVersion: String?
     /// A modal question must never sit under the frozen capture screen or interrupt the editor or panel.
     var isBusy: () -> Bool = { false }
@@ -16,7 +16,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     private var controller: SPUStandardUpdaterController?
 
     func start() {
-        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
     }
     func checkNow() { controller?.updater.checkForUpdatesInBackground() }
 
@@ -34,17 +34,38 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     }
 
     func askIfIdle() {
-        retry?.invalidate(); retry = nil
         guard let version = pendingVersion, !asked else { return }
-        guard !isBusy() else {
-            retry = Timer.scheduledTimer(withTimeInterval: 60, repeats: false) { [weak self] _ in self?.askIfIdle() }
-            return
+        whenIdle { [weak self] in
+            guard let self, !self.asked else { return }
+            self.asked = true
+            if self.ask(version) { self.installNow() }
         }
-        asked = true
-        if ask(version) { installNow() }
     }
 
     func installNow() { install?() }
+
+    // Sparkle shows its own alert only for updates it cannot install silently, such as an app the user may not
+    // modify. A menu bar app would get that alert behind other windows, so Bolso brings it up in focus instead.
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool {
+        immediateFocus && !isBusy()
+    }
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        guard !handleShowingUpdate else { return }
+        whenIdle { [weak self] in
+            NSApp.activate(ignoringOtherApps: true)
+            self?.controller?.checkForUpdates(nil)
+        }
+    }
+
+    private func whenIdle(_ action: @escaping () -> Void) {
+        retry?.invalidate(); retry = nil
+        guard !isBusy() else {
+            retry = Timer.scheduledTimer(withTimeInterval: 60, repeats: false) { [weak self] _ in self?.whenIdle(action) }
+            return
+        }
+        action()
+    }
 
     private static func askToRestart(_ version: String) -> Bool {
         let alert = NSAlert()
