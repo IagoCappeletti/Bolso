@@ -34,3 +34,17 @@ fi
 codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 echo "Pronto: $APP"
+if [[ "${1:-}" == "--install" ]]; then
+  if pgrep -xq Bolso; then
+    # A normal quit lets pending edits cancel the update instead of losing them.
+    osascript -e 'quit app id "dev.personal.Bolso"' >/dev/null 2>&1 || true
+    for _ in $(seq 50); do pgrep -xq Bolso || break; sleep 0.2; done
+    if pgrep -xq Bolso; then
+      echo "O Bolso continua aberto (edição pendente?). Saia pelo menu e rode de novo." >&2
+      exit 1
+    fi
+  fi
+  ditto "$APP" /Applications/Bolso.app
+  open /Applications/Bolso.app
+  echo "Instalado e aberto: /Applications/Bolso.app"
+fi

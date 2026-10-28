@@ -1,7 +1,6 @@
 import AppKit
 
 /// A small vector counterpart of the app icon: two cards in a pocket.
-/// Template rendering lets macOS choose the correct color for the menu bar.
 enum MenuBarIcon {
     static func make() -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in

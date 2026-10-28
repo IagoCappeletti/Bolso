@@ -37,13 +37,17 @@ final class ClipboardStore: ObservableObject {
         guard board.changeCount != lastChange else { return }
         lastChange = board.changeCount
         guard let clip = Clip.read(from: board), board.changeCount == lastChange else { return }
-        history.insert(clip)
+        remember(clip)
     }
     @discardableResult func write(_ clip: Clip, plain: Bool) -> Bool {
         guard clip.write(to: board, plain: plain) else { return false }
         lastChange = board.changeCount
-        history.insert(clip)
+        remember(clip)
         return true
+    }
+    private func remember(_ clip: Clip) {
+        history.insert(clip)
+        history.trim(toByteBudget: ImagePayload.historyBudget, cost: { $0.imageByteCount })
     }
     deinit {
         timer?.invalidate()

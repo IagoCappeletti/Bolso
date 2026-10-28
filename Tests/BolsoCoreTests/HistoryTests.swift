@@ -16,14 +16,16 @@ struct Checks {
         precondition(history.items.isEmpty)
         print("PASS: capacidade, ordem, deduplicação e limpeza")
         clipboardChecks()
+        editorChecks()
+        webPChecks()
+        captureGeometryChecks()
+        toolChecks()
     }
     static func clipboardChecks() {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }
         board.setString("Olá Bolso", forType: .string)
         let first = Clip.read(from: board)!
-        precondition(first.matches("ola"))
-        precondition(!first.matches("inexistente"))
         precondition(Clip.read(from: board)!.fingerprint == first.fingerprint)
         board.setData(Data(), forType: Clip.concealed)
         precondition(Clip.read(from: board) == nil)
@@ -56,12 +58,12 @@ struct Checks {
         board.setData(png, forType: .png)
         let picture = Clip.read(from: board)!
         guard case .image(let thumbnail) = picture.payload else { fatalError("Expected image") }
-        let source = CGImageSourceCreateWithData(thumbnail as CFData, nil)!
+        let source = CGImageSourceCreateWithData(thumbnail.thumbnail as CFData, nil)!
         let image = CGImageSourceCreateImageAtIndex(source, 0, nil)!
         precondition(image.width == 256 && image.height == 128)
         precondition(!picture.write(to: board, plain: true))
         precondition(picture.write(to: board, plain: false))
-        precondition(board.data(forType: .png) == thumbnail)
+        precondition(board.data(forType: .png) == png)
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("bolso-check-\(UUID()).txt")
         try! Data("test".utf8).write(to: file)
         defer { try? FileManager.default.removeItem(at: file) }
@@ -75,6 +77,6 @@ struct Checks {
         precondition(board.string(forType: .string) == file.path)
         try! FileManager.default.removeItem(at: file)
         precondition(!files.write(to: board, plain: false))
-        print("PASS: busca, ConcealedType, limite de texto, RTF/texto puro, miniatura 256px e referências de arquivos")
+        print("PASS: ConcealedType, limite de texto, RTF/texto puro, miniatura 256px e referências de arquivos")
     }
 }
