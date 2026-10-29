@@ -4,6 +4,8 @@
 
 Histórico da área de transferência e captura de tela para macOS. Fica na barra de menus, guarda os últimos 25 itens copiados e tem um editor para marcar imagens e prints.
 
+<p align="center"><img src="docs/demo.gif" width="720" alt="Copiando três itens, colando o primeiro pelo histórico e colando um print marcado numa conversa"></p>
+
 ## Baixar
 
 1. Baixe o `.zip` da [versão mais recente](https://github.com/IagoCappeletti/Bolso/releases/latest) e abra o arquivo.
@@ -37,7 +39,7 @@ As versões seguintes chegam sozinhas: o Bolso baixa em segundo plano e pergunta
 
 ## Captura e editor
 
-**⌘⇧2** congela a tela: clique numa janela ou arraste uma área. Até a primeira marcação dá para ajustar pelas alças ou mover pela alça do topo. O editor de imagens do histórico tem as mesmas ferramentas: desenhar, marcador, seta, caixa, círculo, texto (com fundo opcional), números (1, 2, 3…) e desfocar.
+**⌘⇧2** congela a tela: clique numa janela ou arraste uma área. Até a primeira marcação dá para ajustar pelas alças ou mover pela alça do topo. O editor de imagens do histórico tem as mesmas ferramentas: desenhar, marcador, seta, caixa, círculo, texto (com fundo opcional), números (1, 2, 3…) e desfocar. Além das seis cores da barra, a bolinha de arco-íris abre uma grade com mais 60 cores.
 
 - **Copiar** (⌘C) põe a imagem na área de transferência e no histórico.
 - **Copiar texto** (⌘⇧C) lê o texto com o OCR do macOS; áreas desfocadas continuam ilegíveis.
@@ -81,4 +83,5 @@ swift run -c release Bolso --ui-self-test       # painel
 swift run -c release Bolso --editor-self-test   # editor
 swift run -c release Bolso --capture-self-test  # captura
 swift run -c release Bolso --render-screens <pasta>  # imagens de todas as telas, com conteúdo de exemplo, para revisar o visual
+swift run -c release Bolso --render-demo <video.mp4> [--vertical]  # vídeo de demonstração (precisa do ffmpeg); --vertical faz o corte 4:5 para celular
 ```

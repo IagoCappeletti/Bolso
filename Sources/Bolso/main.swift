@@ -163,7 +163,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func quit() { NSApp.terminate(nil) }
 }
-if CommandLine.arguments.contains("--render-screens") {
+if CommandLine.arguments.contains("--render-demo") {
+    runDemoRender()
+} else if CommandLine.arguments.contains("--render-screens") {
     runScreenRender()
 } else if CommandLine.arguments.contains("--update-self-test") {
     runUpdateCheck()

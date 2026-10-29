@@ -31,15 +31,16 @@ struct MarkupToolbar: View {
                         }.buttonStyle(.plain).help(entry.0).accessibilityLabel(entry.0)
                             .accessibilityAddTraits(session.color == entry.1 ? .isSelected : [])
                     }
+                    CustomColorButton(session: session)
                 }.disabled(session.tool == .blur).opacity(session.tool == .blur ? 0.35 : 1)
                 Divider().frame(height: 22)
                 HStack(spacing: 6) {
-                    Text(sizeLabel).font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(sizeLabel).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize()
                     if session.tool == .text {
-                        Slider(value: Binding(get: { session.fontSize }, set: { session.fontSize = $0.rounded() }), in: 12...96).frame(width: 84).accessibilityLabel(sizeLabel)
+                        Slider(value: Binding(get: { session.fontSize }, set: { session.fontSize = $0.rounded() }), in: 12...96).frame(width: 78).accessibilityLabel(sizeLabel)
                         Text("\(Int(session.fontSize))").font(.system(size: 11)).monospacedDigit().frame(width: 20, alignment: .leading)
                     } else {
-                        Slider(value: Binding(get: { session.width }, set: { session.width = $0.rounded() }), in: 2...16).frame(width: 84).accessibilityLabel(sizeLabel)
+                        Slider(value: Binding(get: { session.width }, set: { session.width = $0.rounded() }), in: 2...16).frame(width: 78).accessibilityLabel(sizeLabel)
                         Text("\(Int(session.width))").font(.system(size: 11)).monospacedDigit().frame(width: 20, alignment: .leading)
                     }
                 }.controlSize(.small)
@@ -94,6 +95,49 @@ struct MarkupToolbar: View {
         case .blur: return "Intensidade"
         default: return "Traço"
         }
+    }
+}
+
+/// A rainbow swatch that opens a small grid of colors; once one is picked, it shows that color inside the ring.
+private struct CustomColorButton: View {
+    @ObservedObject var session: ImageEditorSession
+    private var custom: Bool { !ImageEditorSession.palette.contains { $0.1 == session.color } }
+    var body: some View {
+        Button { session.pickingColor.toggle() } label: {
+            Circle().fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center))
+                .overlay(Circle().fill(Color(nsColor: session.color)).padding(3).opacity(custom ? 1 : 0))
+                .frame(width: 16, height: 16)
+                .padding(3)
+                .overlay(Circle().strokeBorder(custom ? Color.accentColor : .clear, lineWidth: 2))
+        }.buttonStyle(.plain).help("Mais cores").accessibilityLabel("Mais cores")
+            .accessibilityAddTraits(custom ? .isSelected : [])
+            .popover(isPresented: $session.pickingColor, arrowEdge: .bottom) {
+                ColorGrid(selected: session.color) { session.color = $0; session.pickingColor = false }
+            }
+    }
+}
+
+struct ColorGrid: View {
+    let selected: NSColor
+    let choose: (NSColor) -> Void
+    var body: some View {
+        let current = ImageEditorSession.name(of: selected)
+        VStack(spacing: 4) {
+            ForEach(ImageEditorSession.moreColors.indices, id: \.self) { row in
+                HStack(spacing: 4) {
+                    ForEach(ImageEditorSession.moreColors[row].indices, id: \.self) { column in
+                        let color = ImageEditorSession.moreColors[row][column]
+                        let name = ImageEditorSession.name(of: color)
+                        Button { choose(color) } label: {
+                            RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: color)).frame(width: 18, height: 18)
+                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                                .padding(2)
+                                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(name == current ? Color.accentColor : .clear, lineWidth: 2))
+                        }.buttonStyle(.plain).accessibilityLabel(name ?? "Cor")
+                    }
+                }
+            }
+        }.padding(10)
     }
 }
 

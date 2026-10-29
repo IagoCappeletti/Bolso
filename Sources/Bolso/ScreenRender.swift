@@ -112,6 +112,7 @@ private final class ScreenRenderer {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
         saveComposite(view, bar, selection: selection, display: display, name: "captura-marcada-\(suffix)")
         save(bar, "captura-barra-\(suffix)")
+        save(host(ColorGrid(selected: ImageEditorSession.moreColors[2][6]) { _ in }, appearance: appearance), "captura-cores-\(suffix)")
         editor.confirmingDiscard = true
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
         save(bar, "captura-barra-descartar-\(suffix)")

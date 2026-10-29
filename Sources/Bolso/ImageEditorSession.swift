@@ -6,11 +6,18 @@ import UniformTypeIdentifiers
 
 final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
     static let palette: [(String, NSColor)] = [("Vermelho", .systemRed), ("Amarelo", .systemYellow), ("Roxo", .systemPurple), ("Verde", .systemGreen), ("Branco", .white), ("Preto", .black)]
+    /// The grid behind the rainbow swatch: four shades of twelve hues, then grays from white to black.
+    static let moreColors: [[NSColor]] = {
+        let hues: [CGFloat] = [0, 0.05, 0.1, 0.15, 0.25, 0.36, 0.47, 0.55, 0.62, 0.7, 0.78, 0.88]
+        let shades: [(CGFloat, CGFloat)] = [(0.3, 1), (0.6, 1), (0.9, 0.92), (0.9, 0.6)]
+        return shades.map { shade in hues.map { NSColor(hue: $0, saturation: shade.0, brightness: shade.1, alpha: 1) } }
+            + [(0..<12).map { NSColor(white: 1 - CGFloat($0) / 11, alpha: 1).usingColorSpace(.sRGB)! }]
+    }()
     /// Formatting carries over between editors and captures; typed text never does.
     static var preferences = UserDefaults.standard
     @Published var document: ImageEditorDocument?
     @Published var tool: AnnotationTool = .pen { didSet { Self.preferences.set(tool.rawValue, forKey: "editor.tool") } }
-    @Published var color = NSColor.systemRed { didSet { Self.preferences.set(Self.palette.first { $0.1 == color }?.0, forKey: "editor.color") } }
+    @Published var color = NSColor.systemRed { didSet { Self.preferences.set(Self.name(of: color), forKey: "editor.color") } }
     @Published var width: Double = 5 { didSet { Self.preferences.set(width, forKey: "editor.width") } }
     @Published var text = ""
     @Published var fontSize: Double = 28 { didSet { Self.preferences.set(fontSize, forKey: "editor.fontSize") } }
@@ -18,6 +25,7 @@ final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
     @Published var busy = true
     @Published var message = "Carregando imagem…"
     @Published var confirmingDiscard = false
+    @Published var pickingColor = false
     @Published private(set) var recognizing = false
     var onClose: (() -> Void)?
     private(set) var window: NSWindow?
@@ -69,10 +77,21 @@ final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
     private func restorePreferences() {
         let defaults = Self.preferences
         if let raw = defaults.string(forKey: "editor.tool"), let tool = AnnotationTool(rawValue: raw) { self.tool = tool }
-        if let name = defaults.string(forKey: "editor.color"), let entry = Self.palette.first(where: { $0.0 == name }) { color = entry.1 }
+        if let name = defaults.string(forKey: "editor.color"), let saved = Self.color(named: name) { color = saved }
         if let width = defaults.object(forKey: "editor.width") as? Double { self.width = min(16, max(2, width)) }
         if let size = defaults.object(forKey: "editor.fontSize") as? Double { fontSize = min(96, max(12, size)) }
         textBackground = defaults.bool(forKey: "editor.textBackground")
+    }
+    /// A palette name, or #RRGGBB for a color picked in the color panel.
+    static func name(of color: NSColor) -> String? {
+        if let entry = palette.first(where: { $0.1 == color }) { return entry.0 }
+        guard let rgb = color.usingColorSpace(.sRGB) else { return nil }
+        return String(format: "#%02X%02X%02X", Int((rgb.redComponent * 255).rounded()), Int((rgb.greenComponent * 255).rounded()), Int((rgb.blueComponent * 255).rounded()))
+    }
+    static func color(named name: String) -> NSColor? {
+        if let entry = palette.first(where: { $0.0 == name }) { return entry.1 }
+        guard name.count == 7, name.hasPrefix("#"), let value = Int(name.dropFirst(), radix: 16) else { return nil }
+        return NSColor(srgbRed: CGFloat(value >> 16 & 0xFF) / 255, green: CGFloat(value >> 8 & 0xFF) / 255, blue: CGFloat(value & 0xFF) / 255, alpha: 1)
     }
     private func installKeyboardMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
