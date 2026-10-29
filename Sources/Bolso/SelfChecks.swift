@@ -85,7 +85,10 @@ private func updaterChecks() {
     answer = true
     updater.offer(version: "9.9.10") { installs += 1 }
     precondition(questions.last == "9.9.10" && installs == 3, "Reiniciar agora installs right away")
-    print("PASS: atualização espera captura/editor/painel, pergunta uma vez (mesmo achando de novo), Depois instala ao sair e o menu instala na hora")
+    precondition(updater.checkIfStale(), "Opening the history or capturing checks for a release")
+    precondition(!updater.checkIfStale(), "Doing it again right away does not check again")
+    precondition(updater.checkIfStale(now: Date() + 5 * 60), "Five minutes later it checks again")
+    print("PASS: atualização espera captura/editor/painel, pergunta uma vez (mesmo achando de novo), Depois instala ao sair e o menu instala na hora; histórico e captura verificam no máximo a cada 5 min")
 }
 
 func runPanelChecks() {

@@ -123,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         self.session = session
         session.show()
+        updater.checkIfStale()
     }
     @objc private func startCapture() {
         if let capture { capture.show(); return }
@@ -145,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         capture.onError = { [weak self] in self?.session?.close(); self?.showError($0) }
         self.capture = capture
         capture.start()
+        updater.checkIfStale()
     }
     private func showCapturePermission() {
         NSApp.activate(ignoringOtherApps: true)

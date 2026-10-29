@@ -15,6 +15,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     private var retry: Timer?
     private var checks: Timer?
     private var wake: NSObjectProtocol?
+    private var lastCheck = Date.distantPast
     private var controller: SPUStandardUpdaterController?
 
     func start() {
@@ -27,9 +28,17 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.checkNow() }
     }
     func checkNow() {
+        lastCheck = Date()
         // Sparkle ignores checks while a session runs, such as a download already under way.
         guard let updater = controller?.updater, !updater.sessionInProgress else { return }
         updater.checkForUpdatesInBackground()
+    }
+    /// Opening the history or capturing also looks for a release, at most once every five minutes.
+    @discardableResult
+    func checkIfStale(now: Date = Date()) -> Bool {
+        guard now.timeIntervalSince(lastCheck) >= 5 * 60 else { return false }
+        checkNow()
+        return true
     }
 
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock: @escaping () -> Void) -> Bool {
