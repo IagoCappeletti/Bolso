@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 IDENTITY="${SIGN_IDENTITY:-Gaveta DEV}"
-VERSION="${VERSION:-1.3.2}"
+VERSION="${VERSION:-1.4.0}"
 FEED_URL="${FEED_URL:-https://github.com/IagoCappeletti/Bolso/releases/latest/download/appcast.xml}"
 DOWNLOAD_URL="${DOWNLOAD_URL:-https://github.com/IagoCappeletti/Bolso/releases/download/v$VERSION/}"
 # Public half of the update signing key; the private half stays in this Mac's keychain.

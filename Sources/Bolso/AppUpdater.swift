@@ -13,23 +13,30 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     private var install: (() -> Void)?
     private var asked = false
     private var retry: Timer?
-    private var checks: Timer?
     private var wake: NSObjectProtocol?
+    private var lastCheck = Date.distantPast
     private var controller: SPUStandardUpdaterController?
 
     func start() {
         controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
-        // Sparkle's own schedule waits at least an hour; new releases should reach everyone within minutes.
-        checks = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.checkNow() }
+        // Sparkle's own schedule checks hourly; launch, wake, the history and captures check sooner.
         wake = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.checkNow()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.checkNow() }
     }
     func checkNow() {
+        lastCheck = Date()
         // Sparkle ignores checks while a session runs, such as a download already under way.
         guard let updater = controller?.updater, !updater.sessionInProgress else { return }
         updater.checkForUpdatesInBackground()
+    }
+    /// Opening the history or capturing also looks for a release, at most once every five minutes.
+    @discardableResult
+    func checkIfStale(now: Date = Date()) -> Bool {
+        guard now.timeIntervalSince(lastCheck) >= 5 * 60 else { return false }
+        checkNow()
+        return true
     }
 
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock: @escaping () -> Void) -> Bool {
@@ -82,12 +89,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     }
 
     private static func askToRestart(_ version: String) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = "Bolso \(version) pronto para instalar"
-        alert.informativeText = "Reiniciar agora limpa o histórico de cópias. Se preferir, a atualização entra quando o Bolso fechar."
-        alert.addButton(withTitle: "Reiniciar agora")
-        alert.addButton(withTitle: "Depois")
         NSApp.activate(ignoringOtherApps: true)
-        return alert.runModal() == .alertFirstButtonReturn
+        return Alerts.restart(version: version).runModal() == .alertFirstButtonReturn
     }
 }

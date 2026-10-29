@@ -10,11 +10,7 @@ final class PasteController {
         generation += 1
         let token = generation
         guard AXIsProcessTrusted() else {
-            let alert = NSAlert()
-            alert.messageText = "Permita que o Bolso cole por você"
-            alert.informativeText = "O item já está na área de transferência. Para colar automaticamente, ative Bolso em Ajustes do Sistema → Privacidade e Segurança → Acessibilidade. Depois tente novamente. Você também pode colar manualmente com ⌘V."
-            alert.addButton(withTitle: "Abrir Acessibilidade")
-            alert.addButton(withTitle: "Agora não")
+            let alert = Alerts.accessibility()
             NSApp.activate(ignoringOtherApps: true)
             if alert.runModal() == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
