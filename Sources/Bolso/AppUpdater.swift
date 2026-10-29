@@ -13,15 +13,13 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     private var install: (() -> Void)?
     private var asked = false
     private var retry: Timer?
-    private var checks: Timer?
     private var wake: NSObjectProtocol?
     private var lastCheck = Date.distantPast
     private var controller: SPUStandardUpdaterController?
 
     func start() {
         controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
-        // Sparkle's own schedule waits at least an hour; new releases should reach everyone within minutes.
-        checks = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.checkNow() }
+        // Sparkle's own schedule checks hourly; launch, wake, the history and captures check sooner.
         wake = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.checkNow()
         }
