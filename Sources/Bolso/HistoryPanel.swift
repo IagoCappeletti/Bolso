@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import BolsoCore
+import UniformTypeIdentifiers
 
 final class HistoryPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -99,47 +100,42 @@ final class PanelSession: NSObject, ObservableObject, NSWindowDelegate {
     deinit { if let keyMonitor { NSEvent.removeMonitor(keyMonitor) } }
 }
 
-private struct HistoryView: View {
+struct HistoryView: View {
     @ObservedObject var session: PanelSession
     @ObservedObject var store: ClipboardStore
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 36, height: 36)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Bolso").font(.system(size: 17, weight: .semibold))
-                    Text(store.paused ? "Captura pausada" : "Seu histórico, à mão")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                }
+            HStack(spacing: 8) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 22, height: 22)
+                Text("Bolso").font(.system(size: 14, weight: .semibold))
+                Text(count).font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer()
-                Text("⌘ ⇧ V").font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary).padding(.horizontal, 9).padding(.vertical, 5)
-                    .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
                 Button { session.close() } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary).frame(width: 24, height: 24)
+                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22).background(Color.primary.opacity(0.06), in: Circle())
                 }.buttonStyle(.plain).help("Fechar (Esc)").accessibilityLabel("Fechar histórico")
-            }.padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 16)
-
-            HStack {
-                Text("RECENTES").font(.system(size: 10, weight: .semibold)).tracking(1)
-                Spacer()
-                Text("\(store.items.count) de 25").font(.system(size: 10, design: .monospaced))
-            }.foregroundStyle(.secondary).padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 8)
-
+            }.padding(.horizontal, 16).frame(height: 48)
+            if store.paused {
+                HStack(spacing: 8) {
+                    Image(systemName: "pause.circle.fill").foregroundStyle(.orange)
+                    Text("Histórico pausado: novas cópias não entram").font(.system(size: 12))
+                    Spacer()
+                    Button("Retomar") { store.togglePause() }.controlSize(.small)
+                }.padding(.horizontal, 16).padding(.vertical, 8).background(Color.orange.opacity(0.12))
+            }
+            Divider().opacity(0.6)
             if store.items.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "doc.on.clipboard").font(.system(size: 30, weight: .light)).foregroundStyle(.tertiary)
-                    Text("Seu bolso está vazio").font(.system(size: 14, weight: .medium))
-                    Text("Copie um texto, imagem ou arquivo para começar.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 8) {
+                    Image(systemName: "tray").font(.system(size: 28, weight: .light)).foregroundStyle(.tertiary)
+                    Text("Nada copiado ainda").font(.system(size: 14, weight: .medium))
+                    Text("Copie um texto, uma imagem ou um arquivo com ⌘C e ele aparece aqui.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 260)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 4) {
+                        LazyVStack(spacing: 2) {
                             ForEach(Array(store.items.enumerated()), id: \.element.id) { index, item in
                                 ClipRow(item: item, index: index, selected: index == session.selection,
                                         paste: { session.choose(index, plain: NSEvent.modifierFlags.contains(.option)) },
@@ -147,28 +143,37 @@ private struct HistoryView: View {
                                         prepareDrag: { session.dragFiles(for: item) },
                                         finishDrag: { session.endDrag($0, delivered: $1) }).id(index)
                             }
-                        }.padding(.horizontal, 10).padding(.bottom, 10)
+                        }.padding(8)
                     }.onChange(of: session.selection) { proxy.scrollTo($0) }
                 }
             }
-            Divider().opacity(0.5)
-            HStack(spacing: 12) {
+            Divider().opacity(0.6)
+            HStack(spacing: 14) {
                 hint("↑↓", "navegar")
                 hint("↵", "colar")
                 hint("⌘1–9", "direto")
                 Spacer(minLength: 0)
                 hint("⌥", "texto puro")
-            }.padding(.horizontal, 18).padding(.vertical, 13)
+            }.padding(.horizontal, 16).frame(height: 38)
         }.frame(width: 410, height: 480)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.1), lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.primary.opacity(0.1), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .onChange(of: store.items.map(\.id)) { _ in session.selection = 0 }
     }
+    private var count: String {
+        switch store.items.count {
+        case 0: return ""
+        case 1: return "1 item"
+        case let count: return "\(count) itens"
+        }
+    }
     private func hint(_ key: String, _ title: String) -> some View {
-        HStack(spacing: 4) {
-            Text(key).font(.system(size: 10, weight: .medium, design: .monospaced))
-            Text(title).font(.system(size: 10))
+        HStack(spacing: 5) {
+            Text(key).font(.system(size: 10, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 5).frame(minWidth: 18, minHeight: 17)
+                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+            Text(title).font(.system(size: 11))
         }.foregroundStyle(.secondary)
     }
 }
@@ -185,45 +190,16 @@ private struct ClipRow: View {
         if case .files = item.payload { return true }
         return item.editableImage != nil
     }
-    private var label: String {
-        switch item.payload {
-        case .text: return "Texto"
-        case .image(let image): return image.canEdit ? "Imagem · clique na foto para editar" : "Somente miniatura"
-        case .files(let urls): return item.editableImage != nil ? "WebP · clique na foto para editar" : (urls.count == 1 ? "Arquivo" : "\(urls.count) arquivos")
-        }
-    }
-    private var title: String {
-        switch item.payload {
-        case .image: return "Imagem copiada"
-        case .files(let urls): return urls.map(\.lastPathComponent).joined(separator: ", ")
-        case .text: return item.preview
-        }
-    }
     private var thumbnailHelp: String {
         if let image = item.imagePreview {
             return image.canEdit ? "Editar imagem (⌘E)" : "Somente miniatura: imagem acima de 32 MiB ou 24 milhões de pixels. Clique para colar."
         }
         return "Colar item"
     }
-    private var symbol: String {
-        switch item.payload {
-        case .text: return "text.alignleft"
-        case .image: return "photo"
-        case .files: return "doc"
-        }
-    }
     var body: some View {
-        HStack(spacing: 11) {
-            Button(action: item.editableImage == nil ? paste : edit) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.045))
-                    if let png = item.imagePreview, let image = NSImage(data: png.thumbnail) {
-                        Image(nsImage: image).resizable().scaledToFit().padding(3)
-                    } else {
-                        Image(systemName: symbol).font(.system(size: 17)).foregroundStyle(.secondary)
-                    }
-                }.frame(width: 40, height: 40)
-            }.buttonStyle(.plain)
+        HStack(spacing: 12) {
+            Button(action: item.editableImage == nil ? paste : edit) { thumbnail }
+                .buttonStyle(.plain)
                 .overlay {
                     if draggable {
                         DragSourceRepresentable(prepare: prepareDrag, finish: finishDrag, click: item.editableImage == nil ? paste : edit,
@@ -233,27 +209,46 @@ private struct ClipRow: View {
                 .help(thumbnailHelp)
                 .accessibilityLabel(item.editableImage == nil ? "Colar item" : "Editar imagem")
             Button(action: paste) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title).font(.system(size: 12, weight: .medium)).lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
-                    }
-                    if index < 9 {
-                        Text("⌘\(index + 1)").font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-                            .frame(width: 30, height: 22)
-                            .background(Color.primary.opacity(selected ? 0.07 : 0.03), in: RoundedRectangle(cornerRadius: 5))
-                    }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.title).font(.system(size: 13)).lineLimit(item.kind == .text ? 2 : 1)
+                        .truncationMode(item.kind == .link ? .middle : .tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("\(item.kindLabel) · \(item.age())").font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).help("Colar item (Enter)").accessibilityLabel("\(index + 1). Colar \(item.preview)")
-            if item.editableImage != nil {
-                Button(action: edit) { Image(systemName: "pencil") }
-                    .buttonStyle(.plain).help("Editar imagem (⌘E)").accessibilityLabel("Editar imagem")
-            }
-        }.padding(.horizontal, 10).padding(.vertical, 9)
-            .background(selected ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(selected ? Color.accentColor.opacity(0.22) : Color.clear, lineWidth: 1))
+            }.buttonStyle(.plain).help("Colar (Enter)").accessibilityLabel("\(index + 1). Colar \(item.preview)")
+            HStack(spacing: 6) {
+                if item.editableImage != nil {
+                    Button(action: edit) { Image(systemName: "pencil").font(.system(size: 12)) }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Editar imagem (⌘E)").accessibilityLabel("Editar imagem")
+                }
+                Spacer(minLength: 0)
+                if index < 9 {
+                    Text("⌘\(index + 1)").font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(selected ? .primary : .tertiary)
+                }
+            }.frame(width: 50)
+        }.padding(.horizontal, 10).padding(.vertical, 8)
+            .background(selected ? Color.accentColor.opacity(0.2) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
             .contentShape(Rectangle())
+    }
+    @ViewBuilder private var thumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8).fill(item.kind == .link ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.06))
+            if let preview = item.imagePreview, let image = NSImage(data: preview.thumbnail) {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill).frame(width: 36, height: 36)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.12), lineWidth: 1))
+            } else if case .files(let urls) = item.payload, let url = urls.first {
+                Image(nsImage: Self.icon(for: url)).resizable().frame(width: 30, height: 30)
+            } else {
+                Image(systemName: item.kind == .link ? "link" : "text.alignleft").font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(item.kind == .link ? Color.accentColor : .secondary)
+            }
+        }.frame(width: 36, height: 36)
+    }
+    /// Finder's icon for the type, even when the file is gone or on a disconnected volume.
+    private static func icon(for url: URL) -> NSImage {
+        if url.hasDirectoryPath { return NSWorkspace.shared.icon(for: .folder) }
+        return NSWorkspace.shared.icon(for: UTType(filenameExtension: url.pathExtension) ?? .data)
     }
 }

@@ -23,15 +23,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         status.button?.image = MenuBarIcon.make()
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(withTitle: "Abrir Bolso", action: #selector(togglePanel), keyEquivalent: "")
-        menu.addItem(withTitle: "Capturar área da tela", action: #selector(startCapture), keyEquivalent: "")
-        pauseItem = menu.addItem(withTitle: "Pausar captura", action: #selector(pause), keyEquivalent: "")
+        // The global shortcuts are shown beside their items; the menu only reacts to them while it is open.
+        menu.addItem(withTitle: "Abrir histórico", action: #selector(togglePanel), keyEquivalent: "v").keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(withTitle: "Capturar tela", action: #selector(startCapture), keyEquivalent: "2").keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(.separator())
+        pauseItem = menu.addItem(withTitle: "Pausar histórico", action: #selector(pause), keyEquivalent: "")
         menu.addItem(withTitle: "Limpar histórico", action: #selector(clear), keyEquivalent: "")
+        menu.addItem(.separator())
         loginItem = menu.addItem(withTitle: "Abrir ao iniciar o Mac", action: #selector(toggleLogin), keyEquivalent: "")
         updateItem = menu.addItem(withTitle: "Reiniciar para atualizar", action: #selector(installUpdate), keyEquivalent: "")
         updateItem.isHidden = true
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Sair", action: #selector(quit), keyEquivalent: "q")
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            menu.addItem(withTitle: "Bolso \(version)", action: nil, keyEquivalent: "").isEnabled = false
+        }
+        menu.addItem(withTitle: "Sair do Bolso", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
         status.menu = menu
         pasteController.report = { [weak self] in self?.showError($0) }
@@ -48,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     func menuWillOpen(_ menu: NSMenu) {
-        pauseItem.title = store.paused ? "Retomar captura" : "Pausar captura"
+        pauseItem.title = store.paused ? "Retomar histórico" : "Pausar histórico"
         updateItem.isHidden = updater.pendingVersion == nil
         if let version = updater.pendingVersion { updateItem.title = "Reiniciar para atualizar para a \(version)" }
         switch SMAppService.mainApp.status {
@@ -71,11 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     func showError(_ message: String) {
-        let alert = NSAlert()
-        alert.messageText = "Bolso"
-        alert.informativeText = message
         NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
+        Alerts.error(message).runModal()
     }
     @objc private func togglePanel() {
         if let capture { capture.show(); return }
@@ -144,13 +147,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         capture.start()
     }
     private func showCapturePermission() {
-        let alert = NSAlert()
-        alert.messageText = "Bolso precisa de permissão para capturar a tela"
-        alert.informativeText = ScreenCaptureFailure.permission.localizedDescription
-        alert.addButton(withTitle: "Abrir Ajustes do Sistema")
-        alert.addButton(withTitle: "Agora não")
         NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn,
+        if Alerts.capturePermission().runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
         }
@@ -163,7 +161,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func quit() { NSApp.terminate(nil) }
 }
-if CommandLine.arguments.contains("--update-self-test") {
+if CommandLine.arguments.contains("--render-screens") {
+    runScreenRender()
+} else if CommandLine.arguments.contains("--update-self-test") {
     runUpdateCheck()
 } else if CommandLine.arguments.contains("--editor-demo") {
     runEditorDemo()

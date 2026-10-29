@@ -55,7 +55,7 @@ enum ScreenCaptureFailure: LocalizedError {
         switch self {
         case .unavailable: return "Não foi possível capturar a tela. Tente novamente."
         case .tooLarge: return "As telas conectadas excedem o limite de memória de captura (64 milhões de pixels). Reduza a resolução ou desconecte uma tela e tente novamente."
-        case .permission: return "Autorize o Bolso em Ajustes do Sistema → Privacidade e Segurança → Gravação da Tela. Depois, tente capturar novamente; o macOS pode pedir para reabrir o app."
+        case .permission: return "Ligue o Bolso em Ajustes do Sistema → Privacidade e Segurança → Gravação da Tela e tente de novo. O macOS pode pedir para reabrir o app."
         }
     }
 }

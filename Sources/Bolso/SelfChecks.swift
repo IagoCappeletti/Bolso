@@ -398,7 +398,7 @@ func runCaptureChecks() {
     print("PASS: captura real de \(snapshots.count) tela(s): " + snapshots.map { "\($0.image.width)×\($0.image.height)" }.joined(separator: ", "))
 }
 
-private func isolatePreferences() {
+func isolatePreferences() {
     let suite = "dev.personal.Bolso.checks"
     UserDefaults().removePersistentDomain(forName: suite)
     ImageEditorSession.preferences = UserDefaults(suiteName: suite)!

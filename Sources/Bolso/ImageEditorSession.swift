@@ -60,7 +60,7 @@ final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
         self.additionalInputWindow = canvasWindow
         self.closeAfterExport = true
         self.busy = false
-        self.message = "Ajuste as bordas, mova pela alça do topo ou comece a marcar; depois copie, arraste ou salve."
+        self.message = "Ajuste a área ou comece a marcar."
         toolbar.delegate = self
         documentChanges = document.objectWillChange.sink { [weak self] _ in self?.confirmingDiscard = false }
         restorePreferences()
@@ -128,12 +128,7 @@ final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
             confirmingDiscard = true
             return false
         }
-        let alert = NSAlert()
-        alert.messageText = "Descartar alterações?"
-        alert.informativeText = "As marcações ainda não copiadas ou salvas serão perdidas."
-        alert.addButton(withTitle: "Continuar editando")
-        alert.addButton(withTitle: "Descartar")
-        return alert.runModal() == .alertSecondButtonReturn
+        return Alerts.discardEdits().runModal() == .alertSecondButtonReturn
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { canClose() }
     func windowDidResignKey(_ notification: Notification) { _ = cancelGesture?() }

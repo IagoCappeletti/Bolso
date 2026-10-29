@@ -80,4 +80,5 @@ swift run -c release Bolso --self-test          # histórico e memória
 swift run -c release Bolso --ui-self-test       # painel
 swift run -c release Bolso --editor-self-test   # editor
 swift run -c release Bolso --capture-self-test  # captura
+swift run -c release Bolso --render-screens <pasta>  # imagens de todas as telas, com conteúdo de exemplo, para revisar o visual
 ```

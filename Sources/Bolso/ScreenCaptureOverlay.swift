@@ -63,17 +63,45 @@ final class CaptureSelectionView: NSView {
             NSColor.controlAccentColor.setStroke()
             let border = NSBezierPath(rect: hovered.insetBy(dx: 1, dy: 1)); border.lineWidth = 2; border.stroke()
         }
-        if !isEditing {
-            let hint = selection.map { "\(Int($0.width)) × \(Int($0.height)) pt · solte para editar · Esc cancela" }
-                ?? (hovered == nil ? "Arraste para selecionar a área do print · Esc cancela"
-                                   : "Clique para capturar a janela · arraste para escolher uma área · Esc cancela")
-            let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 14, weight: .medium), .foregroundColor: NSColor.white]
-            let size = (hint as NSString).size(withAttributes: attributes)
-            let box = CGRect(x: max(12, (bounds.width - size.width - 28) / 2), y: 40, width: size.width + 28, height: size.height + 20)
-            NSColor.black.withAlphaComponent(0.8).setFill()
-            NSBezierPath(roundedRect: box, xRadius: 10, yRadius: 10).fill()
-            (hint as NSString).draw(at: CGPoint(x: box.minX + 14, y: box.minY + 10), withAttributes: attributes)
+        if !isEditing, selection == nil {
+            drawHint(hovered == nil ? "Arraste para escolher a área do print" : "Clique para capturar esta janela ou arraste uma área")
         }
+        if let selection, drag != nil { drawSize(of: selection) }
+    }
+
+    private func drawHint(_ text: String) {
+        let main: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13, weight: .medium), .foregroundColor: NSColor.white]
+        let key: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.white]
+        let rest: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.white.withAlphaComponent(0.7)]
+        let textSize = (text as NSString).size(withAttributes: main)
+        let keySize = ("esc" as NSString).size(withAttributes: key)
+        let restSize = (" cancela" as NSString).size(withAttributes: rest)
+        let keyWidth = keySize.width + 10
+        let box = CGRect(x: 0, y: 44, width: 18 + textSize.width + 16 + keyWidth + restSize.width + 18, height: 34)
+            .offsetBy(dx: max(12, (bounds.width - (18 + textSize.width + 16 + keyWidth + restSize.width + 18)) / 2), dy: 0)
+        NSColor.black.withAlphaComponent(0.72).setFill()
+        NSBezierPath(roundedRect: box, xRadius: box.height / 2, yRadius: box.height / 2).fill()
+        var x = box.minX + 18
+        (text as NSString).draw(at: CGPoint(x: x, y: box.midY - textSize.height / 2), withAttributes: main)
+        x += textSize.width + 16
+        let cap = CGRect(x: x, y: box.midY - 9, width: keyWidth, height: 18)
+        NSColor.white.withAlphaComponent(0.2).setFill()
+        NSBezierPath(roundedRect: cap, xRadius: 4, yRadius: 4).fill()
+        ("esc" as NSString).draw(at: CGPoint(x: cap.minX + 5, y: cap.midY - keySize.height / 2), withAttributes: key)
+        (" cancela" as NSString).draw(at: CGPoint(x: cap.maxX, y: box.midY - restSize.height / 2), withAttributes: rest)
+    }
+
+    /// The size follows the corner being dragged, as in the system screenshot tool.
+    private func drawSize(of selection: CGRect) {
+        let label = "\(Int(selection.width.rounded())) × \(Int(selection.height.rounded()))"
+        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white]
+        let size = (label as NSString).size(withAttributes: attributes)
+        var box = CGRect(x: selection.maxX - size.width - 16, y: selection.maxY + 8, width: size.width + 16, height: 22)
+        if box.maxY > bounds.maxY - 8 { box.origin.y = selection.maxY - box.height - 8 }
+        box.origin.x = min(max(8, box.minX), bounds.maxX - box.width - 8)
+        NSColor.black.withAlphaComponent(0.72).setFill()
+        NSBezierPath(roundedRect: box, xRadius: 6, yRadius: 6).fill()
+        (label as NSString).draw(at: CGPoint(x: box.minX + 8, y: box.midY - size.height / 2), withAttributes: attributes)
     }
 
     // Handles straddle the border and the move grip sits inside it, so both must win over the canvas.
@@ -211,35 +239,7 @@ struct CaptureToolbarView: View {
     @ObservedObject var editor: ImageEditorSession
     @ObservedObject var document: ImageEditorDocument
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Print · Bolso").font(.headline)
-                Text("\(document.image.width) × \(document.image.height) px").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Cancelar") { editor.window?.performClose(nil) }.disabled(editor.busy && !editor.recognizing).help("Cancelar (Esc)")
-                ImageDragHandle(session: editor).disabled(editor.busy)
-                Button("Copiar texto") { editor.copyText() }.disabled(editor.busy).help("Reconhecer e copiar o texto (⌘⇧C)")
-                Button("Salvar…") { editor.saveImage() }.disabled(editor.busy).help("Salvar PNG (⌘S)")
-                Button("Copiar") { editor.copyImage() }.buttonStyle(.borderedProminent).disabled(editor.busy).help("Copiar (⌘C)")
-            }.padding(.horizontal, 16).padding(.top, 12)
-            ImageEditorTools(session: editor)
-            HStack {
-                if editor.confirmingDiscard {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
-                    Text("Descartar as marcações? Esc de novo também descarta.").font(.caption).lineLimit(2)
-                    Spacer()
-                    Button("Continuar editando") { editor.confirmingDiscard = false }.controlSize(.small)
-                    Button("Descartar", role: .destructive) { editor.window?.performClose(nil) }.controlSize(.small)
-                } else {
-                    if editor.busy { ProgressView().controlSize(.small) }
-                    Text(editor.message).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                    Spacer()
-                }
-                Button { document.undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                    .disabled(editor.busy || document.annotations.isEmpty).help("Desfazer (⌘Z)").accessibilityLabel("Desfazer")
-                Button { document.redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                    .disabled(editor.busy || document.redoStack.isEmpty).help("Refazer (⌘⇧Z)").accessibilityLabel("Refazer")
-            }.padding(.horizontal, 16).padding(.bottom, 12)
-        }.background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius: 12))
+        MarkupToolbar(session: editor, document: document, closeTitle: "Cancelar", saveTitle: "Salvar…", copyTitle: "Copiar")
+            .background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

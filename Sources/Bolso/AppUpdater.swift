@@ -82,12 +82,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDeleg
     }
 
     private static func askToRestart(_ version: String) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = "Bolso \(version) pronto para instalar"
-        alert.informativeText = "Reiniciar agora limpa o histórico de cópias. Se preferir, a atualização entra quando o Bolso fechar."
-        alert.addButton(withTitle: "Reiniciar agora")
-        alert.addButton(withTitle: "Depois")
         NSApp.activate(ignoringOtherApps: true)
-        return alert.runModal() == .alertFirstButtonReturn
+        return Alerts.restart(version: version).runModal() == .alertFirstButtonReturn
     }
 }

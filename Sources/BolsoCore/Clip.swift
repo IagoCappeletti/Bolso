@@ -10,6 +10,7 @@ public struct Clip: Identifiable {
         case files([URL])
     }
     public let id = UUID()
+    public let copiedAt = Date()
     public let fingerprint: String
     public let payload: Payload
     private let fileImage: ImagePayload?
@@ -97,5 +98,77 @@ public struct Clip: Identifiable {
     }
     private static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// What the history list shows for each item.
+extension Clip {
+    public enum Kind { case text, link, files, image }
+
+    public var kind: Kind {
+        switch payload {
+        case .image: return .image
+        case .files: return .files
+        case .text: return link == nil ? .text : .link
+        }
+    }
+
+    /// One line for the list: whitespace folded, links without scheme and query, files by name.
+    public var title: String {
+        switch payload {
+        case .image: return "Imagem"
+        case .files(let urls):
+            let name = urls.first?.lastPathComponent ?? ""
+            return urls.count > 1 ? "\(name) e mais \(urls.count - 1)" : name
+        case .text(let text, _):
+            guard let link else { return text.prefix(400).split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+            let host = link.host.map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 } ?? ""
+            let path = link.path.hasSuffix("/") ? String(link.path.dropLast()) : link.path
+            return host + path
+        }
+    }
+
+    public var kindLabel: String {
+        switch payload {
+        case .text: return link == nil ? "Texto" : "Link"
+        case .image(let image): return Self.size(image)
+        case .files(let urls):
+            guard urls.count == 1, let url = urls.first else { return "\(urls.count) arquivos" }
+            if url.hasDirectoryPath { return "Pasta" }
+            let type = url.pathExtension.isEmpty ? "Arquivo" : url.pathExtension.uppercased()
+            return fileImage.map { "\(type) · \(Self.size($0))" } ?? type
+        }
+    }
+
+    public func age(at now: Date = Date()) -> String {
+        let seconds = max(0, now.timeIntervalSince(copiedAt))
+        switch seconds {
+        case ..<60: return "agora"
+        case ..<3600: return "há \(Int(seconds / 60)) min"
+        case ..<86_400: return "há \(Int(seconds / 3600)) h"
+        default:
+            let days = Int(seconds / 86_400)
+            return days == 1 ? "ontem" : "há \(days) dias"
+        }
+    }
+
+    /// A single web address and nothing else; a sentence that contains one stays text.
+    private var link: URL? {
+        guard case .text(let text, _) = payload else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count <= 2048, !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
+        return url
+    }
+
+    private static let grouping: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
+    private static func size(_ image: ImagePayload) -> String {
+        func number(_ value: Int) -> String { grouping.string(from: NSNumber(value: value)) ?? "\(value)" }
+        return "\(number(image.width)) × \(number(image.height)) px"
     }
 }

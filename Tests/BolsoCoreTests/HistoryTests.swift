@@ -16,6 +16,7 @@ struct Checks {
         precondition(history.items.isEmpty)
         print("PASS: capacidade, ordem, deduplicação e limpeza")
         clipboardChecks()
+        summaryChecks()
         editorChecks()
         webPChecks()
         captureGeometryChecks()
