@@ -447,6 +447,13 @@ private func captureToolChecks(store: ClipboardStore, display: CaptureDisplay) {
         precondition(document.image.width == 320 && canvas.frame == CGRect(x: 40, y: 30, width: 160, height: 80) && !canvas.isHidden, "Dragging a handle must re-crop")
         drag(view, from: NSPoint(x: 250, y: 150), to: NSPoint(x: 350, y: 250))
         precondition(document.image.width == 200 && canvas.frame == CGRect(x: 250, y: 150, width: 100, height: 100), "Dragging outside must pick a new region")
+        let picked = ImageEditorSession.moreColors[2][6]
+        editor.color = picked
+        precondition(ImageEditorSession.palette.allSatisfy { $0.1 != editor.color } && ImageEditorSession.preferences.string(forKey: "editor.color") == ImageEditorSession.name(of: picked)
+                     && ImageEditorSession.name(of: picked)?.hasPrefix("#") == true, "A color from the grid is used and remembered")
+        precondition(ImageEditorSession.name(of: NSColor(srgbRed: 0.1, green: 0.6, blue: 0.9, alpha: 1)) == "#1A99E6"
+                     && ImageEditorSession.color(named: "#1A99E6").flatMap(ImageEditorSession.name(of:)) == "#1A99E6"
+                     && ImageEditorSession.color(named: "Amarelo") == .systemYellow && ImageEditorSession.color(named: "#12345") == nil, "Colors are saved by palette name or #RRGGBB")
         editor.tool = .rectangle; editor.color = .systemYellow; editor.width = 9
         drag(canvas, from: NSPoint(x: 10, y: 10), to: NSPoint(x: 40, y: 40))
         precondition(!view.canAdjust && hit(NSPoint(x: 348, y: 200)) === canvas, "Marks lock the region")
@@ -544,7 +551,7 @@ private func captureToolChecks(store: ClipboardStore, display: CaptureDisplay) {
     }
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
     precondition(weakSession == nil, "Capture session leaked after copying text")
-    print("PASS: clique captura janela, alças recortam, alça move, nova área por arrasto, trava após marcar, descarte sem diálogo, cancelar durante o OCR, arrastar para outro app e preferências")
+    print("PASS: clique captura janela, alças recortam, alça move, nova área por arrasto, trava após marcar, descarte sem diálogo, cancelar durante o OCR, arrastar para outro app, paleta de cores e preferências")
     print(ocrPending ? "SKIP: copiar texto na captura — o macOS ainda prepara o OCR deste binário; rode de novo em alguns minutos"
                      : "PASS: copiar texto na captura vai para a área de transferência e fecha a captura")
 }

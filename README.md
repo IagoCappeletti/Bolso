@@ -37,7 +37,7 @@ As versões seguintes chegam sozinhas: o Bolso baixa em segundo plano e pergunta
 
 ## Captura e editor
 
-**⌘⇧2** congela a tela: clique numa janela ou arraste uma área. Até a primeira marcação dá para ajustar pelas alças ou mover pela alça do topo. O editor de imagens do histórico tem as mesmas ferramentas: desenhar, marcador, seta, caixa, círculo, texto (com fundo opcional), números (1, 2, 3…) e desfocar.
+**⌘⇧2** congela a tela: clique numa janela ou arraste uma área. Até a primeira marcação dá para ajustar pelas alças ou mover pela alça do topo. O editor de imagens do histórico tem as mesmas ferramentas: desenhar, marcador, seta, caixa, círculo, texto (com fundo opcional), números (1, 2, 3…) e desfocar. Além das seis cores da barra, a bolinha de arco-íris abre uma grade com mais 60 cores.
 
 - **Copiar** (⌘C) põe a imagem na área de transferência e no histórico.
 - **Copiar texto** (⌘⇧C) lê o texto com o OCR do macOS; áreas desfocadas continuam ilegíveis.
