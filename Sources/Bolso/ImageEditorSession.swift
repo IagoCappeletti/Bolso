@@ -6,13 +6,6 @@ import UniformTypeIdentifiers
 
 final class ImageEditorSession: NSObject, ObservableObject, NSWindowDelegate {
     static let palette: [(String, NSColor)] = [("Vermelho", .systemRed), ("Amarelo", .systemYellow), ("Roxo", .systemPurple), ("Verde", .systemGreen), ("Branco", .white), ("Preto", .black)]
-    /// The grid behind the rainbow swatch: four shades of twelve hues, then grays from white to black.
-    static let moreColors: [[NSColor]] = {
-        let hues: [CGFloat] = [0, 0.05, 0.1, 0.15, 0.25, 0.36, 0.47, 0.55, 0.62, 0.7, 0.78, 0.88]
-        let shades: [(CGFloat, CGFloat)] = [(0.3, 1), (0.6, 1), (0.9, 0.92), (0.9, 0.6)]
-        return shades.map { shade in hues.map { NSColor(hue: $0, saturation: shade.0, brightness: shade.1, alpha: 1) } }
-            + [(0..<12).map { NSColor(white: 1 - CGFloat($0) / 11, alpha: 1).usingColorSpace(.sRGB)! }]
-    }()
     /// Formatting carries over between editors and captures; typed text never does.
     static var preferences = UserDefaults.standard
     @Published var document: ImageEditorDocument?
